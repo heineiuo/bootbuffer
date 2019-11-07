@@ -28,13 +28,26 @@ for await (const entry of BootBuffer.read(bb.buffer)) {
   // float, 13.2456741
   // double, 13.2456741123
 }
+```
 
+## Support types
+
+* `buffer`
+* `string`
+* `uint8`
+* `uint16`
+* `uint32`
+* `bigint`
+* `float`
+* `double`
+* `boolean`
 
 ## Format
 
 ```
 ValueType<varint> | KeyLength<varint> | ValueLength<varint> | Key<Buffer> | Value<Buffer> | ...repeat |
 ```
+
 
 
 ## License
