@@ -1,5 +1,18 @@
 {
+  "name": "bootbuffer",
+  "version": "0.1.1",
+  "main": "build/index.js",
+  "repository": "https://github.com/heineiuo/bootbuffer",
+  "author": "heineiuo <heineiuo@gmail.com>",
+  "license": "MIT",
+  "files": [
+    "build",
+    "index.d.ts",
+    "index.js",
+    "LICENSE"
+  ],
   "scripts": {
+    "prepublish": "export NODE_ENV=production && yarn build",
     "test": "jest",
     "build": "babel src -d build --ignore 'src/tests' --source-maps --extensions \".ts\" && tsc -d"
   },
@@ -23,5 +36,15 @@
   },
   "dependencies": {
     "varint": "^5.0.0"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "ts",
+      "js"
+    ],
+    "coverageDirectory": "./coverage",
+    "coverageReporters": [
+      "lcov"
+    ]
   }
 }
