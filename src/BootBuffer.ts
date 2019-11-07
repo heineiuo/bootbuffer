@@ -15,6 +15,7 @@ export const kUInt32MaxValue = 4294967295
 export const kUInt16MaxValue = 65535
 export const kUInt8MaxValue = 16
 export const kFloatMaxDigits = 7
+export const kDoubleMaxDigits = 16
 export const kFloatRange = [1.2e-38, 3.4e38]
 
 export enum ValueType {
@@ -187,9 +188,9 @@ export class BootBuffer {
       case ValueType.uint32:
         return valueBuffer.readUInt32LE(0)
       case ValueType.float:
-        return parseFloat(valueBuffer.readFloatLE(0).toFixed(7))
+        return parseFloat(valueBuffer.readFloatLE(0).toFixed(kFloatMaxDigits))
       case ValueType.double:
-        return valueBuffer.readDoubleLE(0)
+        return parseFloat(valueBuffer.readDoubleLE(0).toFixed(kDoubleMaxDigits))
       default:
         return valueBuffer
     }
@@ -242,7 +243,7 @@ export class BootBuffer {
           const str = String(value)
           const digits = str.split('.')[1]
           assert(!!digits)
-          if (digits.length > 7) {
+          if (digits.length > kFloatMaxDigits) {
             isDouble = true
           }
         }
