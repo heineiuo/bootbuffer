@@ -47,6 +47,8 @@ export class ReadState {
   lastType = -1
   lastKeyLengthRead = false
   lastValueLengthRead = false
+  lastKeyRead = false
+  lastValueRead = false
   lastKeyLength = 0
   lastValueLength = 0
   lastKeyBuf = Buffer.allocUnsafe(0)
@@ -132,30 +134,25 @@ export class BootBuffer {
           continue
         }
 
-        if (lastEntry.lastKeyBufUsedSpace < lastEntry.lastKeyLength) {
-          if (currentBuf.length >= lastEntry.lastKeyLength) {
-            lastEntry.lastKeyBuf.fill(currentBuf)
-            lastEntry.lastKeyBufUsedSpace = lastEntry.lastKeyLength
-            bufUsedSpace += lastEntry.lastKeyLength
-          } else {
-            fallback()
+        if (!lastEntry.lastKeyRead) {
+          if (lastEntry.lastKeyLength === 0) {
+            lastEntry.lastKeyRead = true
+            continue
+          } else if (lastEntry.lastKeyBufUsedSpace < lastEntry.lastKeyLength) {
+            if (currentBuf.length >= lastEntry.lastKeyLength) {
+              lastEntry.lastKeyBuf.fill(currentBuf)
+              lastEntry.lastKeyBufUsedSpace = lastEntry.lastKeyLength
+              bufUsedSpace += lastEntry.lastKeyLength
+            } else {
+              fallback()
+            }
+            lastEntry.lastKeyRead = true
+            continue
           }
-          continue
         }
 
-        if (lastEntry.lastValueBufUsedSpace < lastEntry.lastValueLength) {
-          const lastValueBufFreeSpace =
-            lastEntry.lastValueBuf.length - lastEntry.lastValueBufUsedSpace
-          lastEntry.lastValueBuf.fill(
-            buf.slice(bufUsedSpace),
-            lastEntry.lastValueBufUsedSpace
-          )
-          bufUsedSpace += lastValueBufFreeSpace
-          // maybe not all buf content been used
-          lastEntry.lastValueBufUsedSpace += buf.length
-          if (
-            lastEntry.lastValueBufUsedSpace >= lastEntry.lastValueBuf.length
-          ) {
+        if (!lastEntry.lastValueRead) {
+          if (lastEntry.lastValueLength === 0) {
             yield {
               type: lastEntry.lastType,
               key: lastEntry.lastKeyBuf.toString(),
@@ -165,6 +162,31 @@ export class BootBuffer {
               ),
             }
             lastEntry = new ReadState()
+          } else if (
+            lastEntry.lastValueBufUsedSpace < lastEntry.lastValueLength
+          ) {
+            const lastValueBufFreeSpace =
+              lastEntry.lastValueBuf.length - lastEntry.lastValueBufUsedSpace
+            lastEntry.lastValueBuf.fill(
+              buf.slice(bufUsedSpace),
+              lastEntry.lastValueBufUsedSpace
+            )
+            bufUsedSpace += lastValueBufFreeSpace
+            // maybe not all buf content been used
+            lastEntry.lastValueBufUsedSpace += buf.length
+            if (
+              lastEntry.lastValueBufUsedSpace >= lastEntry.lastValueBuf.length
+            ) {
+              yield {
+                type: lastEntry.lastType,
+                key: lastEntry.lastKeyBuf.toString(),
+                value: BootBuffer.parseValue(
+                  lastEntry.lastValueBuf,
+                  lastEntry.lastType
+                ),
+              }
+              lastEntry = new ReadState()
+            }
           }
         }
       }

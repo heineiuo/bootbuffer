@@ -11,6 +11,10 @@ test('BootBuffer', async done => {
   const bb = new BootBuffer()
   bb.add('foo', 'bar')
   bb.add('int8', 13)
+  bb.add('', '')
+  bb.add('', '')
+  bb.add('', '22')
+  bb.add('22', '')
   bb.add('float', 13.2456741)
   bb.add('double', 13.2456741123)
 
@@ -24,5 +28,7 @@ test('BootBuffer', async done => {
   expect(result.int8).toBe(13)
   expect(result.float).toBe(13.2456741)
   expect(result.double).toBe(13.2456741123)
+  expect(result['22']).toBe('')
+  expect(result['']).toBe('22')
   done()
 })
