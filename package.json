@@ -1,6 +1,6 @@
 {
   "name": "bootbuffer",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "main": "build/index.js",
   "repository": "https://github.com/heineiuo/bootbuffer",
   "author": "heineiuo <heineiuo@gmail.com>",
