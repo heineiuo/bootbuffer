@@ -20,6 +20,7 @@ bb.add('foo', 'bar')
 bb.add('int8', 13)
 bb.add('float', 13.2456741)
 bb.add('double', 13.2456741123)
+bb.add('json1', { foo: 'bar' })
 
 for await (const entry of BootBuffer.read(bb.buffer)) {
   console.log(entry.key, entry.value)
@@ -27,6 +28,7 @@ for await (const entry of BootBuffer.read(bb.buffer)) {
   // int8, 13
   // float, 13.2456741
   // double, 13.2456741123
+  // json1, { foo: "bar" }
 }
 ```
 
@@ -41,6 +43,7 @@ for await (const entry of BootBuffer.read(bb.buffer)) {
 * `float`
 * `double`
 * `boolean`
+* `json`
 
 ## Format
 

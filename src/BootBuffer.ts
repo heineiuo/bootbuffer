@@ -28,6 +28,7 @@ export enum ValueType {
   float,
   double,
   boolean,
+  json,
 }
 
 export enum DynamicTotalSize {
@@ -35,7 +36,13 @@ export enum DynamicTotalSize {
   fixed,
 }
 
-export type EntryValueType = Buffer | string | number | bigint | boolean
+export type EntryValueType =
+  | Buffer
+  | string
+  | number
+  | bigint
+  | boolean
+  | unknown
 
 export interface Entry {
   type: ValueType
@@ -213,6 +220,8 @@ export class BootBuffer {
         return parseFloat(valueBuffer.readFloatLE(0).toFixed(kFloatMaxDigits))
       case ValueType.double:
         return parseFloat(valueBuffer.readDoubleLE(0).toFixed(kDoubleMaxDigits))
+      case ValueType.json:
+        return JSON.parse(valueBuffer.toString())
       default:
         return valueBuffer
     }
@@ -279,8 +288,20 @@ export class BootBuffer {
           valueLength = 4
         }
       }
-    } else {
+    } else if (typeof value === 'symbol') {
       throw new Error('Unsupported type.')
+    } else if (typeof value === 'undefined') {
+      throw new Error('Unsupported type.')
+    } else {
+      let jsonValue = ''
+      try {
+        jsonValue = JSON.stringify(value)
+        valueType = ValueType.json
+        valueBuffer = Buffer.from(jsonValue)
+        valueLength = valueBuffer.length
+      } catch (e) {
+        throw new Error('Unsupported type.')
+      }
     }
 
     const keyBuf = Buffer.from(key)

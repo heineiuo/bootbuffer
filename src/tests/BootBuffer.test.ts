@@ -17,10 +17,11 @@ test('BootBuffer', async done => {
   bb.add('22', '')
   bb.add('float', 13.2456741)
   bb.add('double', 13.2456741123)
+  bb.add('json1', { foo: 'bar' })
 
   const buf = bb.buffer
 
-  const result = {} as { [x: string]: EntryValueType }
+  const result = {} as { [x: string]: EntryValueType; json1: { foo: string } }
   for await (const entry of BootBuffer.read(buf)) {
     result[entry.key] = entry.value
   }
@@ -30,5 +31,6 @@ test('BootBuffer', async done => {
   expect(result.double).toBe(13.2456741123)
   expect(result['22']).toBe('')
   expect(result['']).toBe('22')
+  expect(result.json1.foo).toBe('bar')
   done()
 })
