@@ -201,6 +201,7 @@ export class BootBuffer {
   }
 
   static parseValue(valueBuffer: Buffer, type: ValueType): EntryValueType {
+    let tmpValue = 0
     switch (type) {
       case ValueType.buffer:
         return valueBuffer
@@ -217,9 +218,13 @@ export class BootBuffer {
       case ValueType.uint32:
         return valueBuffer.readUInt32LE(0)
       case ValueType.float:
-        return parseFloat(valueBuffer.readFloatLE(0).toFixed(kFloatMaxDigits))
+        tmpValue = valueBuffer.readFloatLE(0)
+        if (tmpValue % 1 === 0) return tmpValue
+        return parseFloat(tmpValue.toFixed(kFloatMaxDigits))
       case ValueType.double:
-        return parseFloat(valueBuffer.readDoubleLE(0).toFixed(kDoubleMaxDigits))
+        tmpValue = valueBuffer.readDoubleLE(0)
+        if (tmpValue % 1 === 0) return tmpValue
+        return parseFloat(tmpValue.toFixed(kDoubleMaxDigits))
       case ValueType.json:
         return JSON.parse(valueBuffer.toString())
       default:
@@ -250,8 +255,11 @@ export class BootBuffer {
     } else if (typeof value === 'number' && Number(value) === value) {
       if (value % 1 === 0) {
         if (value > kUInt32MaxValue) {
-          valueType = ValueType.bigint
-          valueBuffer.writeBigUInt64LE(BigInt(value))
+          // although maybe litter then Number.MAX_SAFE_INTEGER
+          // we cannot serialize it in bigint because we cannot deserialize it
+          // to number again(or not any better way found)
+          valueType = ValueType.double
+          valueBuffer.writeDoubleLE(value, 0)
           valueLength = 8
         } else if (value > kUInt16MaxValue) {
           valueType = ValueType.uint32
