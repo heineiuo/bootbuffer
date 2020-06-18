@@ -70,6 +70,12 @@ async function* createAsyncIterableIteratorFromBuffer(
   yield buf
 }
 
+function* createIterableIteratorFromBuffer(
+  buf: Buffer
+): IterableIterator<Buffer> {
+  yield buf
+}
+
 export class BootBuffer {
   static async *read(
     source: Buffer | AsyncIterableIterator<Buffer>
@@ -86,6 +92,135 @@ export class BootBuffer {
     let lastEntry = new ReadState()
 
     for await (const buf0 of source2) {
+      let buf = buf0
+      if (tmpBufUsedSpace > 0) {
+        buf = Buffer.concat([tmpBuf.slice(0, tmpBufUsedSpace), buf])
+        tmpBufUsedSpace = 0
+      }
+      let bufUsedSpace = 0
+      while (bufUsedSpace < buf.length) {
+        const currentBuf = bufUsedSpace > 0 ? buf.slice(bufUsedSpace) : buf
+        const tmpBufFreeSpace = kTmpBufferSize - tmpBufUsedSpace
+
+        function fallback(): void {
+          tmpBuf.fill(currentBuf, tmpBufUsedSpace)
+          bufUsedSpace += kTmpBufferSize - tmpBufUsedSpace
+          tmpBufUsedSpace += Math.max(currentBuf.length, tmpBufFreeSpace)
+          assert(kTmpBufferSize - tmpBufUsedSpace >= 0)
+        }
+
+        if (lastEntry.lastType === -1) {
+          try {
+            lastEntry.lastType = varint.decode(currentBuf)
+            bufUsedSpace += varint.decode.bytes
+          } catch (e) {
+            fallback()
+          }
+          continue
+        }
+
+        if (!lastEntry.lastKeyLengthRead) {
+          try {
+            lastEntry.lastKeyLength = varint.decode(currentBuf)
+            lastEntry.lastKeyLengthRead = true
+            lastEntry.lastKeyBuf = Buffer.allocUnsafe(lastEntry.lastKeyLength)
+            lastEntry.lastKeyBufUsedSpace = 0
+            bufUsedSpace += varint.decode.bytes
+          } catch (e) {
+            fallback()
+          }
+          continue
+        }
+
+        if (!lastEntry.lastValueLengthRead) {
+          try {
+            lastEntry.lastValueLength = varint.decode(currentBuf)
+            lastEntry.lastValueLengthRead = true
+            lastEntry.lastValueBuf = Buffer.allocUnsafe(
+              lastEntry.lastValueLength
+            )
+            lastEntry.lastValueBufUsedSpace = 0
+            bufUsedSpace += varint.decode.bytes
+          } catch (e) {
+            fallback()
+          }
+          continue
+        }
+
+        if (!lastEntry.lastKeyRead) {
+          if (lastEntry.lastKeyLength === 0) {
+            lastEntry.lastKeyRead = true
+            continue
+          } else if (lastEntry.lastKeyBufUsedSpace < lastEntry.lastKeyLength) {
+            if (currentBuf.length >= lastEntry.lastKeyLength) {
+              lastEntry.lastKeyBuf.fill(currentBuf)
+              lastEntry.lastKeyBufUsedSpace = lastEntry.lastKeyLength
+              bufUsedSpace += lastEntry.lastKeyLength
+            } else {
+              fallback()
+            }
+            lastEntry.lastKeyRead = true
+            continue
+          }
+        }
+
+        if (!lastEntry.lastValueRead) {
+          if (lastEntry.lastValueLength === 0) {
+            yield {
+              type: lastEntry.lastType,
+              key: lastEntry.lastKeyBuf.toString(),
+              value: BootBuffer.parseValue(
+                lastEntry.lastValueBuf,
+                lastEntry.lastType
+              ),
+            }
+            lastEntry = new ReadState()
+          } else if (
+            lastEntry.lastValueBufUsedSpace < lastEntry.lastValueLength
+          ) {
+            const lastValueBufFreeSpace =
+              lastEntry.lastValueBuf.length - lastEntry.lastValueBufUsedSpace
+            lastEntry.lastValueBuf.fill(
+              buf.slice(bufUsedSpace),
+              lastEntry.lastValueBufUsedSpace
+            )
+            bufUsedSpace += lastValueBufFreeSpace
+            // maybe not all buf content been used
+            lastEntry.lastValueBufUsedSpace += buf.length
+            if (
+              lastEntry.lastValueBufUsedSpace >= lastEntry.lastValueBuf.length
+            ) {
+              yield {
+                type: lastEntry.lastType,
+                key: lastEntry.lastKeyBuf.toString(),
+                value: BootBuffer.parseValue(
+                  lastEntry.lastValueBuf,
+                  lastEntry.lastType
+                ),
+              }
+              lastEntry = new ReadState()
+            }
+          }
+        }
+      }
+    }
+  }
+
+  static *readSync(
+    source: Buffer | IterableIterator<Buffer>
+  ): IterableIterator<Entry> {
+    let source2 = {} as IterableIterator<Buffer>
+    if (Buffer.isBuffer(source)) {
+      source2 = createIterableIteratorFromBuffer(source)
+    } else {
+      source2 = source
+    }
+
+    const tmpBuf = Buffer.allocUnsafe(kTmpBufferSize)
+    let tmpBufUsedSpace = 0
+    let lastEntry = new ReadState()
+
+    for (const buf0 of source2) {
       let buf = buf0
       if (tmpBufUsedSpace > 0) {
         buf = Buffer.concat([tmpBuf.slice(0, tmpBufUsedSpace), buf])
@@ -296,10 +431,8 @@ export class BootBuffer {
           valueLength = 4
         }
       }
-    } else if (typeof value === 'symbol') {
-      throw new Error('Unsupported type.')
     } else if (typeof value === 'undefined') {
-      throw new Error('Unsupported type.')
+      return Buffer.alloc(0)
     } else {
       let jsonValue = ''
       try {
